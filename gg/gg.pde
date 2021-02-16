@@ -10,9 +10,10 @@ float[][] Gx = {{ -1, 0, 1},
 float[][] Gy = {{ 1, 2, 1}, 
                 { 0,  0, 0}, 
                 { -1, -2, -1}};
+double[][] kernel = gaussianTerms(3,1);
 void setup() {
   size(640, 360, P3D);
-  img = loadImage("5.jpg");
+  img = loadImage("canvas.png");
   textureMode(NORMAL);
   fill(255);
   stroke(color(44,48,32));
@@ -25,9 +26,54 @@ void draw() {
   rotateX(rotx);
   rotateY(roty);
   scale(90);
-  TexturedCube(Sobel(img));
+  TexturedCube(sobel(img));
 }
-PImage Sobel(PImage img){
+PImage canny(PImage img){
+ return sobel(gaussianBlur(img)); 
+}
+PImage gaussianBlur(PImage img){
+  img.loadPixels();
+
+  // Create an opaque image of the same size as the original
+  PImage edgeImg = createImage(img.width, img.height, RGB);
+
+  // Loop through every pixel in the image
+  for (int y = 1; y < img.height-1; y++) {   // Skip top and bottom edges
+    for (int x = 1; x < img.width-1; x++) {  // Skip left and right edges
+      float sum = 0; // Kernel sum for this pixel
+      for (int ky = -1; ky <= 1; ky++) {
+        for (int kx = -1; kx <= 1; kx++) {
+          // Calculate the adjacent pixel for this kernel point
+          int pos = (y + ky)*img.width + (x + kx);
+          // Image is grayscale, red/green/blue are identical
+          float val = red(img.pixels[pos]);
+          // Multiply adjacent pixels based on the kernel values
+          sum += kernel[ky+1][kx+1] * val;
+        }
+      }
+      // For this pixel in the new image, set the gray value
+      // based on the sum from the kernel
+      edgeImg.pixels[y*img.width + x] = color(sum);
+    }
+  }
+  // State that there are changes to edgeImg.pixels[]
+  edgeImg.updatePixels();
+  return edgeImg;
+}
+double gaussian(int x,double sigma){
+  double c = 2.0 * sigma*sigma;
+  return Math.exp(-x *x / c)/ Math.sqrt(c*Math.PI);
+}
+double[][] gaussianTerms(int kernelSize,double sigma){
+  double[][] terms = new double[kernelSize][kernelSize];
+  for(int i = 0;i < kernelSize;++i){
+    for(int j=0;j<kernelSize;++j){
+      terms[i][j] = gaussian(j-kernelSize/2,sigma);
+    }
+  }
+  return terms;
+}
+PImage sobel(PImage img){
   img.loadPixels();
   //Criação de uma imagem com as mesmas dimensões da original
   PImage imgFiltrada = createImage(img.width, img.height, RGB);
