@@ -1,7 +1,8 @@
 PImage img;
 float rotx = PI/4;
 float roty = PI/4;
-double gradMat,thetaMat;
+double[][] gradMat,thetaMat;
+double[][] strength;
 //Kernel para vertical
 float[][] Gx = {{ -1, 0, 1}, 
                 { -2,  0, 2}, 
@@ -24,6 +25,9 @@ double[][] kernel = gaussianTerms(3,1);
 void setup() {
   size(640, 360, P3D);
   img = loadImage("CC.PNG");
+  gradMat=new double[img.height][img.width];
+  thetaMat=new double[img.height][img.width];
+  strength = new double[img.height][img.width];
   textureMode(NORMAL);
   fill(255);
   stroke(color(44,48,32));
@@ -39,7 +43,7 @@ void draw() {
   TexturedCube();
 }
 PImage canny(PImage img){
- return sobel(gaussianBlur(img)); 
+ return doubleThresholding(nonMax(sobel(gaussianBlur(img))),0.2,0.4); 
 }
 PImage gaussianBlur(PImage img){
   img.loadPixels();
@@ -83,12 +87,11 @@ double[][] gaussianTerms(int kernelSize,double sigma){
   }
   return terms;
 }
-
 PImage sobel(PImage img){
   img.loadPixels();
   //Criação de uma imagem com as mesmas dimensões da original
   PImage imgFiltrada = createImage(img.width, img.height, RGB);
-  
+ 
   
    for (int y = 1; y < img.height-1; y++) {// Imagem original altura 
     for (int x = 1; x < img.width-1; x++) { // Imagem original largura 
@@ -107,11 +110,12 @@ PImage sobel(PImage img){
       }
       // Para este pixel na nova imagem, defina o valor de cinza
       // produto vectorial dos dois kernels
-      gradMat=Math.min(255,Math.sqrt(Math.pow(sumy,2)+Math.pow(sumx,2)));
-      thetaMat=Math.atan2(sumy,sumx);
+      gradMat[y][x]=Math.min(255,Math.sqrt(Math.pow(sumy,2)+Math.pow(sumx,2)));
+      thetaMat[y][x]=Math.atan2(sumy,sumx);
+      strength[y][x]=0;
       //Inserção do novo pixel
       
-      imgFiltrada.pixels[y*img.width + x] = color(Math.round(gradMat));
+      imgFiltrada.pixels[y*img.width + x] = color(Math.round(gradMat[y][x]));
       //imgFiltrada.pixels[y*img.width + x] = color(sumy);
     }
   }
@@ -144,11 +148,11 @@ PImage sobelFeldman(PImage img){
       }
       // Para este pixel na nova imagem, defina o valor de cinza
       // produto vectorial dos dois kernels
-      gradMat=Math.min(255,Math.sqrt(Math.pow(sumy,2)+Math.pow(sumx,2)));
-      thetaMat=Math.atan2(sumy,sumx);
+      gradMat[y][x]=Math.min(255,Math.sqrt(Math.pow(sumy,2)+Math.pow(sumx,2)));
+      thetaMat[y][x]=Math.atan2(sumy,sumx);
       //Inserção do novo pixel
       
-      imgFiltrada.pixels[y*img.width + x] = color(Math.round(gradMat));
+      imgFiltrada.pixels[y*img.width + x] = color(Math.round(gradMat[y][x]));
       //imgFiltrada.pixels[y*img.width + x] = color(sumy);
     }
   }
@@ -157,6 +161,141 @@ PImage sobelFeldman(PImage img){
 // actualizar a imagem filtrada
 imgFiltrada.updatePixels();
 return imgFiltrada;
+}
+PImage nonMax(PImage img) {
+    img.loadPixels();
+    int count = 0;
+
+    for (int i = 1; i < img.height - 1; i++) {
+        for (int j = 1; j < img.width - 1; j++) {
+            double maxValue = gradMat[i][j];
+            if (thetaMat[i][j] == 0) {
+                if (j > 0) {
+                    if (maxValue < gradMat[i][j - 1]) {
+                        maxValue = gradMat[i][j - 1];
+                    }
+                } else if (j < img.width - 1) {
+                    if (maxValue < gradMat[i][j + 1]) {
+                        maxValue = gradMat[i][j + 1];
+                    }
+                }
+            } else if (thetaMat[i][j] == 45) {
+                if (j < img.width - 1 && i > 0) {
+                    if (maxValue < gradMat[i - 1][j + 1]) {
+                        maxValue = gradMat[i - 1][j + 1];
+                    }
+                } else if (j > 0 && i < img.height - 1) {
+                    if (maxValue < gradMat[i + 1][j - 1]) {
+                        maxValue = gradMat[i + 1][j - 1];
+                    }
+                }
+            } else if (thetaMat[i][j] == 90) {
+                if (j > 0) {
+                    if (maxValue < gradMat[i - 1][j]) {
+                        maxValue = gradMat[i - 1][j];
+                    }
+                } else if (j < img.height - 1) {
+                    if (maxValue < gradMat[i + 1][j]) {
+                        maxValue = gradMat[i + 1][j];
+                    }
+                }
+            } else if (thetaMat[i][j] == 135) {
+                if (j > 0 && i > 0) {
+                    if (maxValue < gradMat[i - 1][j - 1]) {
+                        maxValue = gradMat[i - 1][j - 1];
+                    }
+                } else if (j < img.width - 1 && i < img.height - 1) {
+                    if (maxValue < gradMat[i + 1][j + 1]) {
+                        maxValue = gradMat[i + 1][j + 1];
+                    }
+                }
+            }
+            if (maxValue != gradMat[i][j]) {
+                img.pixels[count] = color(0);
+                gradMat[i][j] = 0;
+            }
+            count++;
+        }
+    }
+    img.updatePixels();
+    return img;
+}
+color[][] getPixelMatrix(PImage img){
+  img.loadPixels();
+  color [][] pixelMatrix = new color[img.height][img.width];
+  
+  int line = 0;
+  int col = 0;
+  
+  for(int i = 0; i < img.width * img.height; i++){
+    if(col == img.width){
+        col = 0;
+        line ++;
+    }
+    pixelMatrix[line][col] = img.pixels[i];
+    col ++;
+  }
+  return pixelMatrix;
+}
+PImage doubleThresholding(PImage img,float minThresh,float maxThresh){
+   img.loadPixels();
+   int count = 0;
+   color [][] pixels = getPixelMatrix(img);
+   for(int i = 0; i<img.height; i++){
+     for(int j =0; j < img.width;j++){
+       double intensity = gradMat[i][j] / 255.0;
+       if(intensity < minThresh){
+         img.pixels[count] = color(0);
+         strength[i][j] = 0;
+       }else if(intensity > maxThresh){
+         strength[i][j] = 2;
+         img.pixels[count] = color(255);
+       }else{
+         strength[i][j] = 1;
+       }
+       count++;
+     }
+   }
+   img.updatePixels();
+   //Applying Hysteresis
+   img.loadPixels();
+    pixels = getPixelMatrix(img);
+    count = 0;
+    for(int i = 0; i < img.height; i++){
+        for(int j = 0; j < img.width; j++){
+            
+            if(strength[i][j] != 1){
+                count++;
+                continue;
+            }
+            boolean connected = false;
+            //Checking for connections to strong neighbours
+            if(j > 0)
+                connected = connected || (strength[i][j - 1] == 2);
+            if(j < img.width - 1)
+                connected = connected || (strength[i][j + 1] == 2);
+            if(j < img.width - 1 && i > 0)
+                connected = connected || (strength[i - 1][j + 1] == 2);
+            if(j > 0 && i < img.height - 1)
+                connected = connected || (strength[i + 1][j - 1] == 2);
+            if(i > 0)
+                connected = connected || (strength[i - 1][j] == 2);
+            if(i < img.height - 1)
+                connected = connected || (strength[i + 1][j] == 2);
+            if(j > 0 && i > 0)
+                connected = connected || (strength[i - 1][j - 1] == 2);
+            if(j < img.width - 1 && i < img.height - 1)
+                connected = connected || (strength[i + 1][j + 1] == 2);
+            if(!connected){
+                img.pixels[count] = color(0);
+            }
+            else
+                img.pixels[count] = color(255);
+            count++;
+        }
+    }
+    img.updatePixels();
+   return img;
 }
 void TexturedCube() {
   beginShape(QUADS);
