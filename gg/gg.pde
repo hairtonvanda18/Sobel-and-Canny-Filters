@@ -1,6 +1,7 @@
 PImage img;
 float rotx = PI/4;
 float roty = PI/4;
+double gradMat,thetaMat;
 //Kernel para vertical
 float[][] Gx = {{ -1, 0, 1}, 
                 { -2,  0, 2}, 
@@ -13,7 +14,7 @@ float[][] Gy = {{ 1, 2, 1},
 double[][] kernel = gaussianTerms(3,1);
 void setup() {
   size(640, 360, P3D);
-  img = loadImage("canvas.png");
+  img = loadImage("CC.PNG");
   textureMode(NORMAL);
   fill(255);
   stroke(color(44,48,32));
@@ -26,7 +27,7 @@ void draw() {
   rotateX(rotx);
   rotateY(roty);
   scale(90);
-  TexturedCube(sobel(img));
+  TexturedCube();
 }
 PImage canny(PImage img){
  return sobel(gaussianBlur(img)); 
@@ -73,6 +74,7 @@ double[][] gaussianTerms(int kernelSize,double sigma){
   }
   return terms;
 }
+
 PImage sobel(PImage img){
   img.loadPixels();
   //Criação de uma imagem com as mesmas dimensões da original
@@ -96,10 +98,11 @@ PImage sobel(PImage img){
       }
       // Para este pixel na nova imagem, defina o valor de cinza
       // produto vectorial dos dois kernels
-      double r=Math.min(255,Math.sqrt(Math.pow(sumy,2)+Math.pow(sumx,2)));
+      gradMat=Math.min(255,Math.sqrt(Math.pow(sumy,2)+Math.pow(sumx,2)));
+      thetaMat=Math.atan2(sumy,sumx);
       //Inserção do novo pixel
       
-      imgFiltrada.pixels[y*img.width + x] = color(Math.round(r));
+      imgFiltrada.pixels[y*img.width + x] = color(Math.round(gradMat));
       //imgFiltrada.pixels[y*img.width + x] = color(sumy);
     }
   }
@@ -110,49 +113,51 @@ imgFiltrada.updatePixels();
 return imgFiltrada;
 }
 
-void TexturedCube(PImage tex) {
+void TexturedCube() {
   beginShape(QUADS);
-  texture(tex);
+  texture(img);
 
-  // Given one texture and six faces, we can easily set up the uv coordinates
-  // such that four of the faces tile "perfectly" along either u or v, but the other
-  // two faces cannot be so aligned.  This code tiles "along" u, "around" the X/Z faces
-  // and fudges the Y faces - the Y faces are arbitrarily aligned such that a
-  // rotation along the X axis will put the "top" of either texture at the "top"
-  // of the screen, but is not otherwised aligned with the X/Z faces. (This
-  // just affects what type of symmetry is required if you need seamless
-  // tiling all the way around the cube)
   
   // +Z "front" face
   vertex(-1, -1,  1, 0, 0);
   vertex( 1, -1,  1, 1, 0);
   vertex( 1,  1,  1, 1, 1);
   vertex(-1,  1,  1, 0, 1);
-
+  endShape();
+  beginShape(QUADS);
+  texture(canny(img));
   // -Z "back" face
   vertex( 1, -1, -1, 0, 0);
   vertex(-1, -1, -1, 1, 0);
   vertex(-1,  1, -1, 1, 1);
   vertex( 1,  1, -1, 0, 1);
-
+  endShape();
+  beginShape(QUADS);
+  texture(img);
   // +Y "bottom" face
   vertex(-1,  1,  1, 0, 0);
   vertex( 1,  1,  1, 1, 0);
   vertex( 1,  1, -1, 1, 1);
   vertex(-1,  1, -1, 0, 1);
-
+  endShape();
+  beginShape(QUADS);
+  texture(img);
   // -Y "top" face
   vertex(-1, -1, -1, 0, 0);
   vertex( 1, -1, -1, 1, 0);
   vertex( 1, -1,  1, 1, 1);
   vertex(-1, -1,  1, 0, 1);
-
+  endShape();
+  beginShape(QUADS);
+  texture(gaussianBlur(img));
   // +X "right" face
   vertex( 1, -1,  1, 0, 0);
   vertex( 1, -1, -1, 1, 0);
   vertex( 1,  1, -1, 1, 1);
   vertex( 1,  1,  1, 0, 1);
-
+  endShape();
+  beginShape(QUADS);
+  texture(sobel(img));
   // -X "left" face
   vertex(-1, -1, -1, 0, 0);
   vertex(-1, -1,  1, 1, 0);
