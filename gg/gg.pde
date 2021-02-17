@@ -11,6 +11,15 @@ float[][] Gx = {{ -1, 0, 1},
 float[][] Gy = {{ 1, 2, 1}, 
                 { 0,  0, 0}, 
                 { -1, -2, -1}};
+//Kernel para vertical
+float[][] Gx1 = {{ -3, 0, 3}, 
+                { -10,  0, 10}, 
+                { -3, 0, 3}};
+                    
+//Kernel para horizontal                
+float[][] Gy1 = {{ 3, 10, 3}, 
+                { 0,  0, 0}, 
+                { -3, -10, -3}};
 double[][] kernel = gaussianTerms(3,1);
 void setup() {
   size(640, 360, P3D);
@@ -112,7 +121,43 @@ PImage sobel(PImage img){
 imgFiltrada.updatePixels();
 return imgFiltrada;
 }
-
+PImage sobelFeldman(PImage img){
+  img.loadPixels();
+  //Criação de uma imagem com as mesmas dimensões da original
+  PImage imgFiltrada = createImage(img.width, img.height, RGB);
+  
+  
+   for (int y = 1; y < img.height-1; y++) {// Imagem original altura 
+    for (int x = 1; x < img.width-1; x++) { // Imagem original largura 
+      float sumy = 0; 
+      float sumx=0;
+      for (int ky = -1; ky <= 1; ky++) {
+        for (int kx = -1; kx <= 1; kx++) {
+          // Calcule o pixel adjacente para este ponto do kernel
+          int pos = (y + ky)*img.width + (x + kx);
+          // pegar o valor de 0-255 , podia ser blue ou green, mas a imagem é em tons de cinza, então é irrelevante
+          float val = red(img.pixels[pos]);
+          // Multiplique os pixels adjacentes com base nos valores do kernel para X e Y
+          sumy += Gy1[ky+1][kx+1] * val;
+          sumx += Gx1[ky+1][kx+1] * val;
+        }
+      }
+      // Para este pixel na nova imagem, defina o valor de cinza
+      // produto vectorial dos dois kernels
+      gradMat=Math.min(255,Math.sqrt(Math.pow(sumy,2)+Math.pow(sumx,2)));
+      thetaMat=Math.atan2(sumy,sumx);
+      //Inserção do novo pixel
+      
+      imgFiltrada.pixels[y*img.width + x] = color(Math.round(gradMat));
+      //imgFiltrada.pixels[y*img.width + x] = color(sumy);
+    }
+  }
+  
+  
+// actualizar a imagem filtrada
+imgFiltrada.updatePixels();
+return imgFiltrada;
+}
 void TexturedCube() {
   beginShape(QUADS);
   texture(img);
@@ -133,7 +178,7 @@ void TexturedCube() {
   vertex( 1,  1, -1, 0, 1);
   endShape();
   beginShape(QUADS);
-  texture(img);
+  texture(sobelFeldman(img));
   // +Y "bottom" face
   vertex(-1,  1,  1, 0, 0);
   vertex( 1,  1,  1, 1, 0);
